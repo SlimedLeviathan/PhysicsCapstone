@@ -3,7 +3,7 @@ import classes
 
 pg.init()
 
-pg.time.set_timer(pg.USEREVENT + 1, 1)
+pg.time.set_timer(pg.USEREVENT + 1, 100)
 
 boxColor = [125, 125, 125]
 
@@ -11,9 +11,9 @@ window = pg.display.set_mode() # should be fullscreen
 
 running = True
 
-classes.Box(100, 200)
+classes.Box(100, 549)
 
-classes.Platform(0, 500, 900, 100)
+classes.Platform(0, 600, 900, 100)
 
 while (running == True):
 
@@ -31,9 +31,14 @@ while (running == True):
             for box in classes.boxes:
                 box.move()
 
+                # print(box.speed)
+
         if (evt.type == pg.KEYDOWN):
             if (evt.key == pg.K_ESCAPE):
                 running = False
+
+            if evt.key == pg.K_SPACE:
+                classes.Box(100, 200)
 
         if (evt.type == pg.QUIT):
             running = False

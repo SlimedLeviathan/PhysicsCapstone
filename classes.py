@@ -4,8 +4,10 @@
 
 import math
 
+# global variables
 # normal for gravity, but can be changed in the program
 gravity = 9.8 # this is also here since it should be the farthest down import
+airDens = 1.204
 
 boxSize = 50
 
@@ -42,6 +44,11 @@ def lineCollision(line1, line2): # each line is: [[p11, p12], [p21, p22]]
     return (line1Detect1 and line1Detect2) or (line2Detect1 and line2Detect2)
 
 class Box:
+    
+    # info for air resistance
+    dragCoe = 1.05 # this definetly should change if the box rotates, buuuttt i aint got a clue how to change that
+    crossSection = boxSize * boxSize # the crossSectionalArea is just the box size times itself, since this would be a cube
+
     def __init__(self, x, y, mass = 50):
         self.x = x
         self.y = y
@@ -73,6 +80,9 @@ class Box:
 
     def getFriction(self, frictionCoe):
         return self.getNorm() * frictionCoe
+    
+    def getAirResistance(self):
+        return .5 * airDens * (self.speed[1] ** 2) * self.dragCoe * self.crossSection
 
     def applyFriction(self, endForce):
         # basically, we take the speed and forces currently acting on an object in order to make an accurate amount of friction
@@ -80,10 +90,14 @@ class Box:
 
         friction = [0, 0]
 
+        ground = False
+
         for data in self.collidingPlatforms:
             # currently, dont worry aout ow much of the platform is touching the box
 
             if (data[1] == "up" or data[1] == "down"):
+                ground = True
+
                 # find the friction force of the object
 
                 xFriction = self.getFriction(data[0].frictionCoefficient)
@@ -103,6 +117,10 @@ class Box:
         # if the box is not touching any platform, and therefore, freefalling (as long as the endForce has some value greater than 0)
         # we calculate the air resistance
 
+        friction[1] -= self.getAirResistance() # Fa
+        
+        return friction
+
     def applyForces(self):
         netForce = [0, 0]
 
@@ -116,13 +134,17 @@ class Box:
         endForce[0] += self.mass * self.speed[0]
         endForce[1] += self.mass * self.speed[1]
 
-        friction = self.applyForce(endForce)
+        friction = self.applyFriction(endForce)
+
+        netForce[0] += friction[0]
+        netForce[1] += friction[1]
 
         # we divide by 1000 since the measurements are in m/s and we are doing this every millisecond, so we have to change it a bit
-        self.speed[0] += (netForce[0] / self.mass) / 1000
-        self.speed[1] += (netForce[1] / self.mass) / 1000
+        self.speed[0] += (netForce[0] / (self.mass * 1000)) 
+        self.speed[1] += (netForce[1] / (self.mass * 1000)) 
 
-        self.forces.clear() # clears the forces, since each millisecond they all need to readd themselves in order to be relevant
+        self.forces.clear() # clears the forces, since each millisecond they all need to re-add themselves in order to be relevant
+        self.collidingPlatforms.clear()
 
     def setPoints(self):
         if (self.angle != 0):
@@ -144,15 +166,12 @@ class Box:
     def collisionDetect(self):
         # checks all platofrms to see which ones this box is touching, then apply the forces
         for platform in platforms:
-            if platform.x + platform.height - self.x < 1: # if the difference in xes are less than 1 (so they are touching top to bottom)
+            if (abs(platform.y - (self.y)) < 1): # if the difference in Ys are less than 1 (so they are touching top to bottom)
                 self.addForce(platform.addNorm(self))
 
-                self.collidingPlatforms.append(platform)
+                self.collidingPlatforms.append([platform, "down"])
 
-                # for purposes of not getting into too much right now, well just stop the box's y speed, but in the future this should be replaced with a force stopping the ball equal to the amount of speed the box has
-                if (self.speed[1] < 0): 
-                    self.speed[1] = 0
-
+                self.addForce(Force(self.mass * -((self.speed[1] ** 2) * 1000) * .5, "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
 
     def forceObjectApply(self):
         for forceObject in self.forceObjects:
@@ -163,8 +182,6 @@ class Box:
         self.addGravity() # gravity comes first
         
         self.collisionDetect() # then the norms
-
-        self.applyFriction() # applies friction, which depends on the speed of the object
 
         self.forceObjectApply() # then the force objects
 
@@ -196,8 +213,7 @@ class Platform:
         platforms.append(self)
 
     def addNorm(self, box):
-        return Force(box.getNorm(), "n", 180)
-
+        return Force(-box.getNorm(), "n", 0)
 
 class Incline(Platform):
     def __init__(self, x, y, width, angle):
@@ -210,10 +226,10 @@ class Incline(Platform):
 
         self.points = [[x, y], [x + width, y], [x + width, y + height]]
 
-    def addNorm(self):
+    def addNorm(self, box):
         # this add norm is a bit different since the box would be sitting on it at an angle
 
-        return Force(gravity, "n", self.angle + 180)
+        return Force(box.getNorm(), "n", self.angle + 180)
     
 
 class Force:
@@ -230,8 +246,8 @@ class Force:
         # find the magnitude in each direction
 
         if (self.dir != 0):
-            xForce = self.magnitude / math.sin(math.radians(self.dir))
-            yForce = self.magnitude / math.cos(math.radians(self.dir))
+            xForce = self.magnitude * math.sin(math.radians(self.dir))
+            yForce = self.magnitude * math.cos(math.radians(self.dir))
         
         else:
             yForce = self.magnitude
@@ -255,3 +271,8 @@ class String(ForceObject):
 class Spring(ForceObject):
     def __init__(self, maxMagnitude, dir):
         ForceObject.__init__(maxMagnitude, "s", dir)
+
+# "applied force"
+class Thrusters(ForceObject):
+    def __init__(self, magnitude, dir):
+        ForceObject.__init__(magnitude, "a", dir)
