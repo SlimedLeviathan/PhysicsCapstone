@@ -3,7 +3,7 @@ import classes
 
 pg.init()
 
-pg.time.set_timer(pg.USEREVENT + 1, 100)
+pg.time.set_timer(pg.USEREVENT + 1, 1)
 
 boxColor = [125, 125, 125]
 
@@ -11,7 +11,9 @@ window = pg.display.set_mode() # should be fullscreen
 
 running = True
 
-classes.Box(100, 549)
+box = classes.Box(100, 200)
+
+box.forceObjects.append(classes.Thrusters(25 * classes.gravity, 90))
 
 classes.Platform(0, 600, 900, 100)
 
