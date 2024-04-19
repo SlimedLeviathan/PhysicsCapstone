@@ -84,8 +84,8 @@ class Box:
     def getFriction(self, frictionCoe):
         return self.getNorm() * frictionCoe
     
-    def getAirResistance(self):
-        airRes = .5 * airDens * (self.speed[1] ** 2) * self.dragCoe * self.crossSection
+    def getAirResistance(self, speed):
+        airRes = .5 * airDens * (speed ** 2) * self.dragCoe * self.crossSection
 
         if (self.speed[1] < 0):
             airRes *= -1
@@ -122,7 +122,8 @@ class Box:
         # if the box is not touching any platform, and therefore, freefalling (as long as the endForce has some value greater than 0)
         # we calculate the air resistance
 
-        frictions.append(Force(self.getAirResistance(), "Fa", 180)) # Fa
+        frictions.append(Force(self.getAirResistance(self.speed[1]), "Fa", 180)) # Fa
+        frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 270)) # Fa
         
         return frictions
 
@@ -171,13 +172,21 @@ class Box:
     def collisionDetect(self):
         # checks all platofrms to see which ones this box is touching, then apply the forces
         for platform in platforms:
-            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1]) + 1 and lineCollision([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
                 self.addForce(platform.addNorm(self))
 
                 self.collidingPlatforms.append([platform, "down"])
 
                 self.addForce(Force(self.mass * gravity * -((self.speed[1] ** 2) * 1000 * .5), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
+
+            elif (abs((platform.y + platform.height) - (self.y)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+
+                # we dont add a norm, but correct the forces later to set the box at the endge of the platform later
+
+                self.collidingPlatforms.append([platform, "up"])
+
+                self.addForce(Force(self.mass * gravity * ((self.speed[1] ** 2) * 1000 * .5), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
 
     def forceObjectApply(self):
         for forceObject in self.forceObjects:
@@ -248,26 +257,8 @@ class Force:
         self.magnitude = mag
 
     def applyForce(self, netForce):
-
-        # if (self.dir == 0):
-        #     yForce = self.magnitude
-        #     xForce = 0
-        
-        # elif (self.dir == 90):
-        #     xForce = self.magnitude
-        #     yForce = 0
-
-        # elif (self.dir == 180):
-        #     xForce = 0
-        #     yForce = -self.magnitude
-
-        # elif (self.dir == 270):
-        #     xForce = -self.magnitude
-        #     yForce = 0
-
-        # else:
-        xForce = self.magnitude * math.sin(math.radians(self.dir))
-        yForce = self.magnitude * math.cos(math.radians(self.dir))
+        xForce = self.magnitude * round(math.sin(math.radians(self.dir)), 6) # rounds to six digits
+        yForce = self.magnitude * round(math.cos(math.radians(self.dir)), 6)
 
         netForce[0] += math.floor(xForce)
         netForce[1] += math.floor(yForce)

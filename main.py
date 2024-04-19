@@ -13,7 +13,7 @@ running = True
 
 box = classes.Box(100, 200)
 
-box.forceObjects.append(classes.Thrusters(25 * classes.gravity, 90))
+# box.forceObjects.append(classes.Thrusters(60 * classes.gravity, 135))
 
 classes.Platform(0, 600, 900, 100)
 
@@ -32,8 +32,6 @@ while (running == True):
         if (evt.type == pg.USEREVENT + 1): # every millisecond
             for box in classes.boxes:
                 box.move()
-
-                # print(box.speed)
 
         if (evt.type == pg.KEYDOWN):
             if (evt.key == pg.K_ESCAPE):
