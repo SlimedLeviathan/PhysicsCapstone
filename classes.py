@@ -3,6 +3,7 @@
 # all angles are in degrees
 
 import math
+import pygame as pg
 
 # global variables
 # normal for gravity, but can be changed in the program
@@ -12,6 +13,13 @@ airDens = 1.204
 boxSize = 50
 
 boxes = []
+
+pg.font.init()
+
+font = pg.font.Font(None, 16)
+
+def displayText(window: pg.Surface, x, y, text):
+    window.blit(font.render(text, True, [255, 255, 255]), [x, y])
 
 def oneDLineColl(line1, line2): # lines are : [p1, p2]
     pass
@@ -172,7 +180,7 @@ class Box:
     def collisionDetect(self):
         # checks all platofrms to see which ones this box is touching, then apply the forces
         for platform in platforms:
-            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.1) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
                 self.addForce(platform.addNorm(self))
 
@@ -209,6 +217,14 @@ class Box:
     def addForce(self, force):
         self.forces.append(force)
 
+    def getKineticEnergy(self):
+        return .5 * self.mass * (self.speed[0] + self.speed[1])
+    
+    def getPotentialEnergy(self):
+        height = 1
+
+        return self.mass * gravity * height
+
 platforms = []
 
 class Platform:
@@ -228,6 +244,8 @@ class Platform:
 
     def addNorm(self, box):
         return Force(-box.getNorm(), "n", 0)
+    
+ground = Platform(0, 600, 900, 100)
 
 class Incline(Platform):
     def __init__(self, x, y, width, angle):

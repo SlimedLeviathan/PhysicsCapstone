@@ -15,8 +15,6 @@ box = classes.Box(100, 200)
 
 # box.forceObjects.append(classes.Thrusters(60 * classes.gravity, 135))
 
-classes.Platform(0, 600, 900, 100)
-
 while (running == True):
 
     # fills the screen with a light blue that represents the sky
