@@ -26,6 +26,10 @@ while (running == True):
         pg.draw.polygon(window, [0, 255, 0], platform.points)
 
     for box in classes.boxes:
+        # draw the boxes arrows first, so they are under the box
+        box.drawForces(window)
+
+        # then draw the box
         pg.draw.polygon(window, boxColor, box.points)
 
     for evt in pg.event.get():

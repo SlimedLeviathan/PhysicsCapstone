@@ -1,8 +1,9 @@
 # this file contains all of the main classes
 
-# all angles are in degrees
+# all angles are in degrees, so they have to be converted to radians for the calculations
 
-import math
+import math, numpy
+import pygame as pg
 
 # global variables
 # normal for gravity, but can be changed in the program
@@ -13,8 +14,14 @@ boxSize = 50
 
 boxes = []
 
+def pointInLine(point, line):
+    lineMin = min(line)
+    lineMax = max(line)
+
+    return point > lineMin and point < lineMax
+
 def oneDLineColl(line1, line2): # lines are : [p1, p2]
-    pass
+    return pointInLine(line1[0], line2) or pointInLine(line1[1], line2) or pointInLine(line2[0], line1)
 
 # returns false if min and max are both greater than or less than the point
 def minMaxDetect(point, min, max): # each parameter is one int
@@ -128,6 +135,7 @@ class Box:
         return frictions
 
     def applyForces(self):
+
         netForce = [0, 0]
 
         for force in self.forces:
@@ -149,9 +157,6 @@ class Box:
         self.speed[0] += (netForce[0] / (self.mass * 1000)) 
         self.speed[1] += (netForce[1] / (self.mass * 1000)) 
 
-        self.forces.clear() # clears the forces, since each millisecond they all need to re-add themselves in order to be relevant
-        self.collidingPlatforms.clear()
-
     def setPoints(self):
         if (self.angle != 0):
             widthX = boxSize / math.cos(self.angle)
@@ -172,15 +177,15 @@ class Box:
     def collisionDetect(self):
         # checks all platofrms to see which ones this box is touching, then apply the forces
         for platform in platforms:
-            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.1) + 1 and oneDLineColl([platform.x, platform.x + platform.width], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
                 self.addForce(platform.addNorm(self))
 
                 self.collidingPlatforms.append([platform, "down"])
 
-                self.addForce(Force(self.mass * gravity * -((self.speed[1] ** 2) * 1000 * .5), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
+                self.addForce(Force(self.mass * gravity * -((self.speed[1] ** 2) * .5 * 1000), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
 
-            elif (abs((platform.y + platform.height) - (self.y)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.height], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+            elif (abs((platform.y + platform.height) - (self.y)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([platform.x, platform.x + platform.width], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
                 # we dont add a norm, but correct the forces later to set the box at the endge of the platform later
 
@@ -193,6 +198,10 @@ class Box:
             self.forces.append(forceObject.getForce())
 
     def move(self):
+        # clear the forces here rather than at the end so that we can draw the forces
+        self.forces.clear() # clears the forces, since each millisecond they all need to re-add themselves in order to be relevant
+        self.collidingPlatforms.clear()
+
         self.addGravity() # gravity comes first
         
         self.collisionDetect() # then the norms
@@ -208,6 +217,29 @@ class Box:
 
     def addForce(self, force):
         self.forces.append(force)
+
+    def drawForces(self, window: pg.Surface): # figured out this is how you tell the IDE and other programmers what a parameter should be, doesnt affect actual python tho
+        
+        print(self.forces)
+
+        for force in self.forces:
+            # find out how far in each direction the line should go
+
+            if force.magnitude < 10:
+                continue
+
+            startPos = [self.x + (boxSize / 2), self.y + (boxSize / 2)]
+            endPos = force.applyForce([0, 0])
+
+            endPos[0] /= 10
+            endPos[1] /= 10
+
+            endPos[0] += startPos[0]
+            endPos[1] += startPos[1]
+
+            pg.draw.line(window, [255,255,255], startPos, endPos)
+
+            # we also need to put the name of the force onto the screen
 
 platforms = []
 
