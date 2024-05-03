@@ -9,11 +9,14 @@ boxColor = [125, 125, 125]
 
 window = pg.display.set_mode() # should be fullscreen
 
+classes.setGround(window)
+
 running = True
 
-box = classes.Box(100, 200)
+box = classes.Box(400, 200)
 
-# box.forceObjects.append(classes.Thrusters(60 * classes.gravity, 135))
+# box.forceObjects.append(classes.Thrusters(50 * classes.gravity, 0))
+box.forceObjects.append(classes.Thrusters(25, 270))
 
 while (running == True):
 

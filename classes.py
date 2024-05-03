@@ -7,7 +7,7 @@ import pygame as pg
 
 # global variables
 # normal for gravity, but can be changed in the program
-gravity = 9.8 # this is also here since it should be the farthest down import
+gravity = 9.8 # this is also here since this file should be the farthest down import
 airDens = 1.204
 
 boxSize = 50
@@ -119,16 +119,21 @@ class Box:
 
                 # find the friction force of the object
 
+
                 xFriction = self.getFriction(data[0].frictionCoefficient)
 
                 if (self.speed[0] == 0): # static friction
                     if xFriction > endForce[0]:
                         xFriction = endForce[0] # if the static friction is above the endForce, then we make sure it doesnt actually move the box
 
-                if (endForce[0] > 0): # makes sure ti gos the opposite direction
-                    xFriction *= -1
+                if (xFriction != 0):
 
-                frictions.append(Force(xFriction, "f", 90))
+                    if (xFriction > 0):
+                        frictions.append(Force(xFriction, "f", 270))
+                    
+                    if (xFriction < 0):
+                        frictions.append(Force(xFriction, "f", 90))
+                
 
             if (data[1] == "left" or data[1] == "right"):
                 pass
@@ -136,8 +141,15 @@ class Box:
         # if the box is not touching any platform, and therefore, freefalling (as long as the endForce has some value greater than 0)
         # we calculate the air resistance
 
-        frictions.append(Force(self.getAirResistance(self.speed[1]), "Fa", 180)) # Fa
-        frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 270)) # Fa
+
+        if (self.speed[0] > 0):
+            frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 270)) # Fa
+
+        elif (self.speed[0] < 0):
+            frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 90))
+
+
+        frictions.append(Force(self.getAirResistance(self.speed[1]), "Fa", 180))
         
         return frictions
 
@@ -159,6 +171,8 @@ class Box:
 
         for force in frictions:
             netForce = force.applyForce(netForce)
+
+        self.forces.extend(frictions)
 
         # we divide by 1000 since the measurements are in m/s and we are doing this every millisecond, so we have to change it a bit
         self.speed[0] += (netForce[0] / (self.mass * 1000)) 
@@ -184,7 +198,7 @@ class Box:
     def collisionDetect(self):
         # checks all platofrms to see which ones this box is touching, then apply the forces
         for platform in platforms:
-            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.1) + 1 and oneDLineColl([platform.x, platform.x + platform.width], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+            if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.05) + 1 and oneDLineColl([platform.x, platform.x + platform.width], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
                 self.addForce(platform.addNorm(self))
 
@@ -234,27 +248,75 @@ class Box:
         return self.mass * gravity * height
 
     def drawForces(self, window: pg.Surface): # figured out this is how you tell the IDE and other programmers what a parameter should be, doesnt affect actual python tho
-        
-        print(self.forces)
+
+        dirLines = {} # saves all lines made to this dict, each key is a direction and the value is a list of all ofthe lines inside of that direction
+        # a line is [[startExtra], [endPoint], name]
 
         for force in self.forces:
             # find out how far in each direction the line should go
 
-            if force.magnitude < 10:
+            if abs(force.magnitude) < 10:
                 continue
 
-            startPos = [self.x + (boxSize / 2), self.y + (boxSize / 2)]
             endPos = force.applyForce([0, 0])
 
             endPos[0] /= 10
             endPos[1] /= 10
 
-            endPos[0] += startPos[0]
-            endPos[1] += startPos[1]
+            prevLines = []
 
-            pg.draw.line(window, [255,255,255], startPos, endPos)
+            dir = force.dir
 
-            # we also need to put the name of the force onto the screen
+            if (force.magnitude < 0):
+                # flip the direction to be oppoisite
+
+                dir = (dir + 180) % 360
+
+            dictRes = dirLines.get(dir)
+
+            if (dictRes != None):   
+                prevLines.extend(dictRes)
+            
+            prevLines.append([[0, 0], endPos, force.char])
+
+            lineNum = 1
+
+            for line in prevLines:
+                
+                startExtra = line[0]                
+
+                # for now, im not worrying about diagonals
+                if (dir == 0 or dir == 180):
+                    startExtra[0] = (boxSize / (len(prevLines) + 1)) * lineNum
+
+                    if (dir == 0):
+                        startExtra[1] = boxSize
+
+                elif (dir == 90 or dir == 270):
+                    startExtra[1] = (boxSize / (len(prevLines) + 1)) * lineNum
+
+                    if (dir == 90):
+                        startExtra[0] = boxSize
+
+                lineNum += 1
+
+            dirLines.update({dir : prevLines})
+
+        print(dirLines)
+
+        for dir, lines in dirLines.items():
+
+            for line in lines:
+                startPos = [self.x + line[0][0], self.y + line[0][1]]
+
+                endPos = line[1]
+
+                endPos[0] += startPos[0]
+                endPos[1] += startPos[1]
+
+                pg.draw.line(window, [255,255,255], startPos, endPos, 5)
+
+                # we also need to put the name of the force onto the screen
 
 platforms = []
 
@@ -276,7 +338,11 @@ class Platform:
     def addNorm(self, box):
         return Force(-box.getNorm(), "n", 0)
     
-ground = Platform(0, 600, 900, 100)
+
+def setGround(window : pg.Surface):
+    global ground
+
+    ground = Platform(-100, window.get_height() - 100, window.get_width() + 200, 100)
 
 class Incline(Platform):
     def __init__(self, x, y, width, angle):
