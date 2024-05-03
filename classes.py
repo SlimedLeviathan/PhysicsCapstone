@@ -14,6 +14,13 @@ boxSize = 50
 
 boxes = []
 
+pg.font.init()
+
+font = pg.font.Font(None, 16)
+
+def displayText(window: pg.Surface, x, y, text):
+    window.blit(font.render(text, True, [255, 255, 255]), [x, y])
+
 def pointInLine(point, line):
     lineMin = min(line)
     lineMax = max(line)
@@ -218,6 +225,14 @@ class Box:
     def addForce(self, force):
         self.forces.append(force)
 
+    def getKineticEnergy(self):
+        return .5 * self.mass * (self.speed[0] + self.speed[1])
+    
+    def getPotentialEnergy(self):
+        height = 1
+
+        return self.mass * gravity * height
+
     def drawForces(self, window: pg.Surface): # figured out this is how you tell the IDE and other programmers what a parameter should be, doesnt affect actual python tho
         
         print(self.forces)
@@ -260,6 +275,8 @@ class Platform:
 
     def addNorm(self, box):
         return Force(-box.getNorm(), "n", 0)
+    
+ground = Platform(0, 600, 900, 100)
 
 class Incline(Platform):
     def __init__(self, x, y, width, angle):
