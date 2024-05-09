@@ -5,6 +5,9 @@
 import math, numpy
 import pygame as pg
 
+# variables that affect what gets shown on the screen
+showEnergies = False
+
 # global variables
 # normal for gravity, but can be changed in the program
 gravity = 9.8 # this is also here since this file should be the farthest down import
@@ -61,14 +64,17 @@ def lineCollision(line1, line2): # each line is: [[p11, p12], [p21, p22]]
     return (line1Detect1 and line1Detect2) or (line2Detect1 and line2Detect2)
 
 class Box:
-    
     # info for air resistance
     dragCoe = 1.05 # this definetly should change if the box rotates, buuuttt i aint got a clue how to change that
     crossSection = boxSize * boxSize # the crossSectionalArea is just the box size times itself, since this would be a cube
 
+    frictionCoefficient = .3
+
     def __init__(self, x, y, mass = 50):
         self.x = x
         self.y = y
+
+        self.rect = pg.rect.Rect(self.x, self.y, self.x + boxSize, self.y + boxSize)
 
         self.mass = mass
 
@@ -101,7 +107,7 @@ class Box:
     def getAirResistance(self, speed):
         airRes = .5 * airDens * (speed ** 2) * self.dragCoe * self.crossSection
 
-        if (self.speed[1] < 0):
+        if (speed < 0):
             airRes *= -1
 
         return airRes
@@ -126,13 +132,17 @@ class Box:
                     if xFriction > endForce[0]:
                         xFriction = endForce[0] # if the static friction is above the endForce, then we make sure it doesnt actually move the box
 
+                else:
+                    if (xFriction > endForce[0] + self.speed[0] / 2): # ok, so i REALLY could not find out how much friction actually affects an object with speed, so we do this to compensate
+                        xFriction = endForce[0] + self.speed[0] / 2
+
                 if (xFriction != 0):
 
                     if (xFriction > 0):
-                        frictions.append(Force(xFriction, "f", 270))
+                        frictions.append(Force(xFriction, "f", 90))
                     
                     if (xFriction < 0):
-                        frictions.append(Force(xFriction, "f", 90))
+                        frictions.append(Force(xFriction, "f", 270))
                 
 
             if (data[1] == "left" or data[1] == "right"):
@@ -141,15 +151,10 @@ class Box:
         # if the box is not touching any platform, and therefore, freefalling (as long as the endForce has some value greater than 0)
         # we calculate the air resistance
 
-
-        if (self.speed[0] > 0):
+        if (len(self.collidingPlatforms) == 0):
             frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 270)) # Fa
 
-        elif (self.speed[0] < 0):
-            frictions.append(Force(self.getAirResistance(self.speed[0]), "Fa", 90))
-
-
-        frictions.append(Force(self.getAirResistance(self.speed[1]), "Fa", 180))
+            frictions.append(Force(self.getAirResistance(self.speed[1]), "Fa", 180))
         
         return frictions
 
@@ -195,8 +200,10 @@ class Box:
 
         self.points = [[self.x, self.y], [self.x + widthX, self.y + widthY], [self.x + widthX + heightX, self.y + widthY + heightY], [self.x + heightX, self.y + heightY],]
 
+        self.rect = pg.rect.Rect(self.x, self.y, boxSize, boxSize)
+
     def collisionDetect(self):
-        # checks all platofrms to see which ones this box is touching, then apply the forces
+        # checks all platforms to see which ones this box is touching, then apply the forces
         for platform in platforms:
             if (abs((platform.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.05) + 1 and oneDLineColl([platform.x, platform.x + platform.width], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
 
@@ -213,6 +220,28 @@ class Box:
                 self.collidingPlatforms.append([platform, "up"])
 
                 self.addForce(Force(self.mass * gravity * ((self.speed[1] ** 2) * 1000 * .5), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
+
+        # so boxes collide with each other
+        for box in boxes:
+            if (abs((box.y) - (self.y + boxSize)) <= abs(self.speed[1] * 1.05) + 1 and oneDLineColl([box.x, box.x + boxSize], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+
+                self.addForce(box.addNorm(self))
+
+                self.collidingPlatforms.append([box, "down"])
+
+                self.addForce(Force(self.mass * gravity * -((self.speed[1] ** 2) * .5 * 1000), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
+
+            elif (abs((box.y + boxSize) - (self.y)) <= abs(self.speed[1] * 1.5) + 1 and oneDLineColl([box.x, box.x + boxSize], [self.x, self.x + boxSize])): # if the difference in Ys are less than 1 (so they are touching top to bottom)
+
+                # we dont add a norm, but correct the forces later to set the box at the edge of the platform later
+
+                self.collidingPlatforms.append([box, "up"])
+
+                self.addForce(Force(self.mass * gravity * ((self.speed[1] ** 2) * 1000 * .5), "s")) # im just saying spring since it uses the pressure of the object to keep it from falling
+
+    # so collision between blocks works better
+    def addNorm(self, box):
+        return Force(-box.getNorm(), "n", 0)
 
     def forceObjectApply(self):
         for forceObject in self.forceObjects:
@@ -231,8 +260,8 @@ class Box:
 
         self.applyForces() # then we apply the forces
 
-        self.x += self.speed[0]
-        self.y += self.speed[1]
+        self.x = self.speed[0] + self.x
+        self.y = self.speed[1] + self.y
 
         self.setPoints()
 
@@ -243,7 +272,7 @@ class Box:
         return .5 * self.mass * (self.speed[0] + self.speed[1])
     
     def getPotentialEnergy(self):
-        height = 1
+        height = ground.y - (self.y + boxSize)
 
         return self.mass * gravity * height
 
@@ -290,19 +319,25 @@ class Box:
                     startExtra[0] = (boxSize / (len(prevLines) + 1)) * lineNum
 
                     if (dir == 0):
-                        startExtra[1] = boxSize
+                        startExtra[1] = boxSize + 1
+
+                    else:
+                        startExtra[1] = -1
 
                 elif (dir == 90 or dir == 270):
                     startExtra[1] = (boxSize / (len(prevLines) + 1)) * lineNum
 
                     if (dir == 90):
-                        startExtra[0] = boxSize
+                        startExtra[0] = boxSize + 1
+
+                    else:
+                        startExtra[0] = -1
 
                 lineNum += 1
 
             dirLines.update({dir : prevLines})
 
-        print(dirLines)
+        # print(dirLines)
 
         for dir, lines in dirLines.items():
 
@@ -317,6 +352,12 @@ class Box:
                 pg.draw.line(window, [255,255,255], startPos, endPos, 5)
 
                 # we also need to put the name of the force onto the screen
+                displayText(window, endPos[0] + 5, endPos[1] + 5, line[2])
+
+    def drawEnergies(self, window : pg.Surface):
+        displayText(window, self.x + 2, self.y + 2, f"P: {round(self.getPotentialEnergy(), 2)}")
+
+        displayText(window, self.x + 2, self.y + 22, f"K: {round(self.getKineticEnergy(), 2)}")
 
 platforms = []
 
@@ -336,6 +377,8 @@ class Platform:
         platforms.append(self)
 
     def addNorm(self, box):
+        # because platforms dont move, we dont add any forces to it
+
         return Force(-box.getNorm(), "n", 0)
     
 
